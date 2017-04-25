@@ -77,6 +77,12 @@ class WPRD_FoldersMedia
 		load_plugin_textdomain(self::$plugin_hook, false, dirname( plugin_basename(__FILE__ ) ) . '/languages' );
 
 		define( 'WRFM_BASENAME', plugin_basename(__FILE__) ); // WPRD_Folders_Media/wprd-folders-media.php
+		define( 'WRFM_UPLOAD_DIR', '' );
+
+		$path = wp_upload_dir();
+		$path['basedir'] = str_replace('\\', '/', $path['basedir']);
+		$path['basedir'] = preg_replace('/\/[^\/]+\/[\.]{2}/u', '', $path['basedir']);
+		$path['basedir'] = str_replace('/', '\\', $path['basedir']);
 
 		$this->pre_upload_functions();
 		$this->upload_functions();
@@ -240,11 +246,25 @@ class WPRD_FoldersMedia
 	private function default_settings()
 	{
 		_d('default_settings');
+
+		$defaults = [
+			''	=> '',
+		];
+
+		$before = get_option(self::$plugin_hook);
+
+		if( is_array($before) ) {
+			$defaults = $before += $defaults;
+		}
+
+		update_option(self::$plugin_hook, $defaults);
 	}
 
 	private function remove_settings()
 	{
 		_d('remove_settings');
+
+		delete_option(self::$plugin_hook);
 	}
 
 }
