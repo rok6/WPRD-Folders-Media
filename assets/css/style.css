@@ -1,0 +1,16 @@
+
+
+#wrfm-new_filter {
+	padding: 2.5em 1.5em;
+	text-align: center;
+	cursor: crosshair;
+	border: 4px dashed #b4b9be;
+}
+#wrfm-new_filter:hover {
+	border-color: #83b4d8;
+}
+.wrfm-new_filter-info {
+	color: #a0a5aa;
+    font-size: 1.5em;
+    margin: 5px 0;
+}
