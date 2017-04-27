@@ -7,29 +7,24 @@ Version: 0.1
 Author: mzkr6
 Author URI: http://example.com/
 License: GPL2
+
+v PHP 5.4 -
+
+Copyright 2017 mazkr6 (email : プラグイン作者のメールアドレス)
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License, version 2, as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
-/*  Copyright 2017 mazkr6 (email : プラグイン作者のメールアドレス)
-
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License, version 2, as
-	published by the Free Software Foundation.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program; if not, write to the Free Software
-	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-*/
-
-/**
- * WPRD_FoldersMedia
- *
- * PHP5.4-
- */
 
 if( !defined('ABSPATH') ) {
 	exit;
@@ -54,26 +49,40 @@ class WPRD_FoldersMedia
 	private static $object;
 	private static $version = 0.1;
 
+
 	private static $plugin_name = 'WPRD Folders Media';
+
+	// テキストドメインや option の設定名
 	private static $plugin_hook	= 'wprd-folders-media';
-	private static $prefix		= 'wrfm';
+	// 管理ページのスラッグ
+	private static $setting_page_name = 'wprd-folders-media';
+	// 設定フィールドグループ名
+	private static $setting_group = 'wprd-folders-media-group';
+
+	private static $prefix = 'wrfm';
 	private static $admin_menu_hook;
 
-	private static $setting_page_name = 'wprd-folders-media';
-	private static $setting_group = 'wprd-folders-media-group';
+
+	private static $safe_list = [
+		'%post_type%',
+		'%file_type%',
+		'%file_ext%',
+		'%author%',
+		'%author_id%',
+		'%post_id%',
+	];
 
 	private static $plugin_menu_role = 'administrator';
 	private static $upload_dir_base;
 	private static $upload_dir_url;
+	private static $upload_dirname;
 
-	private $get_params;
+	private $post_types;
 	private $vars = [];
 	private $options = [];
 
-	public function __construct()
-	{
-		//
-	}
+	// ファイルデータの一時保存用
+	private static $_data = [];
 
 	/**=====================================================
 	 *	WRFM Setup
@@ -82,9 +91,6 @@ class WPRD_FoldersMedia
 	{
 		load_plugin_textdomain(self::$plugin_hook, false, dirname( plugin_basename(__FILE__ ) ) . '/languages' );
 
-		define( 'WRFM_BASENAME', plugin_basename(__FILE__) ); // wprd-folders-media/wprd-folders-media.php
-		define( 'WRFM_UPLOAD_DIR', '' );
-
 		$path = wp_upload_dir();
 		$path['basedir'] = str_replace('\\', '/', $path['basedir']);
 		$path['basedir'] = preg_replace('/\/[^\/]+\/[\.]{2}/u', '', $path['basedir']);
@@ -92,43 +98,118 @@ class WPRD_FoldersMedia
 
 		self::$upload_dir_base = $path['basedir'];
 		self::$upload_dir_url = $path['baseurl'];
+		self::$upload_dirname = $this->get_upload_dirname();
 
-		$this->pre_upload_functions();	// アップロード前の処理
-		$this->uploaded_functions();	// アップロード後の処理
+		// $this->pre_upload_functions();	// アップロード前の処理
+		// $this->uploaded_functions();	// アップロード後の処理
+
+		add_filter('wp_handle_upload_prefilter', [$this, 'pre_upload_functions']);
+		add_filter('wp_handle_upload', [$this, 'upload_functions']);
+
 		$this->admin_menu();
+
 	}
 
 
 	/**
 	 *
 	 */
-	private function pre_upload_functions()
+	public function pre_upload_functions( $_file )
 	{
-		add_filter('wp_handle_upload_prefilter', function( $file ) {
-			add_filter('upload_dir', [&$this, 'wprd_upload_dir']);
-			return $file;
-		});
+		$file = $_file['name'];
+		$mime = wp_check_filetype( $file );
+		self::$_data['file_type'] = $mime['type'];
+		self::$_data['file_ext'] = $mime['ext'];
+
+		add_filter('upload_dir', [$this, 'wprd_upload_dir']);
+		return $_file;
 	}
 
 
 	/**
 	 *
 	 */
-	private function uploaded_functions()
+	public function upload_functions( $up_filedata )
 	{
-		add_filter('wp_handle_upload', function( $file ) {
-			remove_filter('upload_dir', [&$this, 'wprd_upload_dir']);
-			return $file;
-		});
+		remove_filter('upload_dir', [$this, 'wprd_upload_dir']);
+		return $up_filedata;
 	}
+
 
 	/**
 	 *
 	 */
-	private function register_settings()
+	public function wprd_upload_dir( $path )
 	{
-		register_setting(self::$prefix.'-settings', self::$plugin_hook, [&$this, 'valid_settings']);
+		_d('wprd_upload_dir----------');
+
+		$use_yearmonth = (int) get_option('uploads_use_yearmonth_folders');
+		if( !empty($path['error']) || $use_yearmonth ) {
+			return $path;
+		}
+		$path['basedir'] = $path['path'] = self::$upload_dir_base;
+		$path['baseurl'] = $path['url'] = self::$upload_dir_url;
+		$path = $this->wprd_dir_paths($path);
+
+		_dump($path);
+		// wp-admin/includes/file.php 372
+		// _dump('-------------------------');
+		// _dump($uploads);
+		// _dump($file);
+		// exit;
+
+		return $path;
 	}
+
+
+	public function wprd_dir_paths( $path )
+	{
+		global $post, $post_id, $current_user;
+
+		self::$_data['post_type'] = get_post_type($post_id);
+		self::$_data['user_id'] = $current_user->data->ID;
+		self::$_data['user_login'] = $current_user->data->user_login;
+
+		$subdir = '/';
+		$default = $this->options['default_dir'];
+		// test
+		// $default = '%post_type%/%file_type%';
+		$subdir .= $default;
+
+		foreach( self::$safe_list as $key ) {
+			$subdir = str_replace($key, $this->get_key($key), $subdir);
+		}
+
+		$path['subdir'] = $subdir;
+		$path['path'] .= $subdir;
+		$path['url'] .= $subdir;
+
+
+		$filename = dirname(__FILE__) . '/log.txt';
+
+		// ファイルに書き込む
+		file_put_contents( $filename, json_encode($post, JSON_PRETTY_PRINT) );
+		// ファイルを出力する
+		// readfile($filename);
+
+		return $path;
+	}
+
+	private function get_key( $key )
+	{
+		$d = self::$_data;
+		$_safe = [
+			'%post_type%'	=> $d['post_type'],
+			'%file_type%'	=> $d['file_type'],
+			'%file_ext%'	=> $d['file_ext'],
+			'%author%'		=> $d['user_login'],
+			'%author_id%'	=> $d['user_id'],
+			'%post_id%'		=> '',
+		];
+		return $_safe[$key];
+	}
+
+
 
 	/**
 	 *
@@ -149,7 +230,7 @@ class WPRD_FoldersMedia
 
 		add_action('admin_init', [&$this, 'register_setting_fields']);
 
-		$this->get_params = get_option(self::$plugin_hook);
+		$this->options = get_option(self::$plugin_hook);
 	}
 
 	/**
@@ -157,12 +238,13 @@ class WPRD_FoldersMedia
 	 */
 	public function admin_page()
 	{
-		$this->vars['params'] = $this->get_params;
+		$this->vars['params'] = $this->options;
 		$this->vars['files'] = $this->get_files();
-		$this->vars['post_types'] = $this->get_post_types();
+		$this->vars['post_types'] = $this->post_types = $this->get_post_types();
 		$this->vars['plugin_name'] = self::$plugin_hook;
 		$this->vars['setting_group'] = self::$setting_group;
 		$this->vars['page_name'] = self::$setting_page_name;
+		$this->vars['upload_base_dir'] = self::$upload_dirname;
 
 		extract($this->vars);
 		include('includes/settings.php');
@@ -194,14 +276,15 @@ class WPRD_FoldersMedia
 	/**=====================================================
 	 *	WRFM Methods
 	 *=====================================================*/
+
 	/**
 	 *
 	 */
-	private function wprd_upload_dir( $param )
+	private function get_upload_dirname()
 	{
-		$this->parara = $param;
-		return $param;
+		return str_replace(['../', './'], '', get_option('upload_path'));
 	}
+
 
 	/**
 	 *
@@ -275,11 +358,10 @@ class WPRD_FoldersMedia
 		switch( $id )
 		{
 			case 'settings':
-				$this->options = get_option(self::$plugin_hook);
+				$prop = 'default_dir';
+				$value = $this->get_param($prop);
 
-				$value = $this->get_param('default_dir');
-
-				echo '<input name="'.self::$plugin_hook.'['.$id.']" type="text" id="'.$id.'" value="'. esc_attr($value) .'" class="regular-text" />',
+				echo '<span class="show_directory"><code>'. self::$upload_dirname .'/</code></span><input name="'.self::$plugin_hook.'['. $prop .']" type="text" id="'. self::$prefix.'-'.$prop .'" value="'. esc_attr($value) .'" class="regular-text" />',
 					 '<p class="description">',
 					 	'下記、投稿タイプごとの指定がない場合のフォルダ作成の基本設定です。<br />',
 					 	'空欄の場合はフォルダを作成しません。「/」で階層を分けることができ、空白があった場合は自動的に削除され詰められます。',
@@ -287,24 +369,42 @@ class WPRD_FoldersMedia
 
 
 
-				echo '<div class="wrfm-container">',
-						'<ul id="wrfm-filters">';
+				echo '<div class="'. self::$prefix .'-container">',
+						'<ul id="'. self::$prefix .'-filters">';
 
 						if( !empty($this->options['dirs']) ) {
 
-		 					foreach( $this->options['dirs'] as $dir_set ) {
-		 						echo '<li>',
-										'<select name="'. self::$plugin_hook .'[dirs][]">',
-											'<option></option>',
-										'</select>',
-									 '</li>';
-		 					}
+								foreach( $this->options['dirs'] as $post_type => $dir_set ) {
 
-		 				}
+									$_namebase = self::$plugin_hook . '[dirs]['.$post_type.']';
+									$_type	= !empty($dir_set['post_type']) ? $dir_set['post_type'] : '';
+									$_id	= !empty($dir_set['id']) ? $dir_set['id'] : '';
+									$_filter = !empty($dir_set['filter']) ? $dir_set['filter'] : '';
+
+		 						echo '<li id="'. esc_attr($_id) .'">',
+										'<div class="wrfm-filter-header">',
+											'<select name="'. $_namebase .'">';
+											foreach( $this->post_types as $type => $label ) {
+												echo '<option value="'. esc_attr($type) .'" '. selected($type, $_type, false) .'>'. esc_html($label) .'</option>';
+											}
+								echo		'</select>',
+											'<span class="remove">この項目を削除</span>',
+										'</div>',
+										'<div class="wrfm-filter-input">',
+											'<label><span class="show_directory"></span><input name="" type="text" data-name="filter" value="'. esc_attr($_filter) .'" /></label>',
+										'</div>',
+										'<div class="wrfm-filter-hidden">',
+											'<input name="" type="hidden" data-name="id" value="'. esc_attr($_id) .'" />',
+										'</div>',
+									 '</li>';
+									 ;
+								}
+
+							}
 
 				echo	'</ul>',
-						'<div id="wrfm-new_filter">',
-							'<p class="wrfm-new_filter-info">'. __('投稿タイプの毎のフォルダ条件を追加', self::$plugin_hook) .'</p>',
+						'<div id="'. self::$prefix .'-new_filter">',
+							'<p class="'. self::$prefix .'-new_filter-info">'. __('投稿タイプの毎のフォルダ条件を追加', self::$plugin_hook) .'</p>',
 						'</div>',
 					 '</div>';
 				break;
@@ -323,10 +423,59 @@ class WPRD_FoldersMedia
 
 	public function sanitize( $input )
 	{
-		_d($input);
-		add_settings_error( self::$setting_page_name, self::$plugin_hook, 'メッセージを入力して下さい。' );
+		/**
+		 * 必要なデータのみ抜き出す
+		 */
+		$new_input = [];
+		$new_input['default_dir'] = $input['default_dir'];
+		$new_input['dirs'] = isset($input['dirs']) ? $input['dirs'] : [];
 
-		return $input;
+		//基本設定
+		if( !$this->valid_input($new_input['default_dir']) ) {
+			$new_input = get_option(self::$plugin_hook);
+		}
+
+
+		foreach( $new_input['dirs'] as $post_type => $data ) {
+
+			// 存在しない投稿タイプがあった場合のエラー処理
+			if( !array_key_exists($post_type, $this->get_post_types()) ) {
+				add_settings_error( self::$plugin_hook, 'invalid_type', '不正なデータです' );
+				$new_input = get_option(self::$plugin_hook);
+				break;
+			}
+
+			// filter に許可されていない文字列があった場合のエラー処理
+			if( !$this->valid_input($data['filter']) ) {
+				$new_input = get_option(self::$plugin_hook);
+				break;
+			}
+
+		}
+		return $new_input;
+	}
+
+	private function valid_input( $input_value )
+	{
+		$return = true;
+
+		if( empty($input_value) ) {
+			$return = false;
+		}
+		else {
+
+			$tags = explode( '/', preg_replace('/[\/]{2,}/', '', $input_value) );
+
+			foreach( $tags as $tag ) {
+				if( !in_array($tag, self::$safe_list, true) ) {
+					add_settings_error( self::$plugin_hook, 'unavailable_characters', '利用できない文字列が含まれています。' );
+					$return = false;
+					break;
+				}
+			}
+		}
+
+		return $return;
 	}
 
 
@@ -359,8 +508,8 @@ class WPRD_FoldersMedia
 	private function default_settings()
 	{
 		$defaults = [
-			'dirs' => [],
 			'default_dir' => '',
+			'dirs' => [],
 		];
 
 		$before = get_option(self::$plugin_hook);
