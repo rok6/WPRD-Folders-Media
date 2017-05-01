@@ -39,7 +39,6 @@ class WPRD_Folders_Media
 		// add_filter('wp_handle_upload', [$this, 'upload_functions']);
 
 		add_action('admin_menu', [$this, 'register_admin_menu']);
-		add_action('admin_init', [$this, 'register_settings_fields']);
 	}
 
 	/**=====================================================

@@ -22,6 +22,7 @@ trait WRFM_Admin_Settings
 		);
 		// CSS, JS Load
 		add_action('admin_print_scripts-'.self::$admin_menu_hook, [$this, 'add_admin_scripts']);
+		add_action('admin_init', [&$this, 'register_settings_fields']);
 	}
 
 	/**
@@ -29,18 +30,10 @@ trait WRFM_Admin_Settings
 	 */
 	public function admin_page()
 	{
-		// $this->vars['params'] = $this->options;
-		// $this->vars['files'] = $this->get_files();
-		// $this->vars['post_types'] = $this->post_types = $this->get_post_types();
-		// $this->vars['plugin_name'] = self::$plugin_hook;
-		// $this->vars['setting_group'] = self::$setting_group;
-		// $this->vars['page_name'] = self::$setting_page_name;
-		// $this->vars['upload_base_dir'] = self::$upload_dirname;
-
+		_d('admin_page');
 		foreach( $this->get_vars() as $k => $v ) {
 			$$k = $v;
 		}
-
 		include('settings.php');
 	}
 

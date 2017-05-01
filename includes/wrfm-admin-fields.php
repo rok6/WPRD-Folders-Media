@@ -35,6 +35,8 @@ trait WRFM_Admin_Fields
 		);
 
 		register_setting(self::$setting_group, $field_id);
+
+			_d('add_settings_field');
 	}
 
 
