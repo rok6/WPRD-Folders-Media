@@ -1,1 +1,8 @@
-null
+{
+    "path": "C:\\var\\www\\wprd\\public_html\\wp\\wp-content\\uploads\/news\/image\/jpg\/mzkr6\/1",
+    "url": "http:\/\/wprd.dev\/wp\/wp-content\/uploads\/news\/image\/jpg\/mzkr6\/1",
+    "subdir": "\/news\/image\/jpg\/mzkr6\/1",
+    "basedir": "C:\\var\\www\\wprd\\public_html\\wp\\wp-content\\uploads",
+    "baseurl": "http:\/\/wprd.dev\/wp\/wp-content\/uploads",
+    "error": false
+}
