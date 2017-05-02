@@ -4,6 +4,8 @@ trait WRFM_Utils
 {
 	private static $object;
 
+	private static $allowed_post_types;
+
 	/**=====================================================
 	 *	Make a self
 	 *=====================================================*/
@@ -22,7 +24,7 @@ trait WRFM_Utils
 	 */
 	private function get_vars()
 	{
-		yield 'params' => get_option(self::$plugin_name);
+		yield 'params' => self::$wrfm_options;
 
 		yield 'files' => $this->get_files();
 
@@ -31,8 +33,31 @@ trait WRFM_Utils
 			'group' => self::$setting_group,
 		];
 
-		yield 'upload_dirname' => $this->get_upload_dirname();
+		yield 'post_types' => self::$allowed_post_types;
+
+		yield 'upload_dirname' => self::$upload_dirname;
 	}
+
+	/**
+	 *
+	 */
+	private function get_post_types( array $args = [] )
+	{
+		$args = $args += [
+			'public'	=> true,
+			'_builtin'	=> false
+		];
+
+		$types = [];
+		$_types = array_merge(['post' => 'post', 'page' => 'page'], get_post_types($args));
+
+		foreach( $_types as $key => $post_type ) {
+			$types[$key] = get_post_type_object($post_type)->label;
+		}
+
+		return $types;
+	}
+
 
 	/**
 	 *
@@ -47,12 +72,24 @@ trait WRFM_Utils
 		return get_posts($args);
 	}
 
+
+	/**
+	 *
+	 */
+	private function get_upload_dir_path()
+	{
+		$path = wp_upload_dir();
+
+		return $path;
+	}
+
+
 	/**
 	 *
 	 */
 	private function get_upload_dirname()
 	{
-		return str_replace(['../', './'], '', get_option('upload_path'));
+		return str_replace( ['../', './'], '', ( $base_dir = get_option('upload_path') !== '' ? $base_dir : 'wp-content/uploads' ) );
 	}
 
 
@@ -65,7 +102,7 @@ trait WRFM_Utils
 		return esc_attr(self::$plugin_name . '['. $prop .']' . $after);
 	}
 
-	private function input_selecter( $prop )
+	private function selecter( $prop )
 	{
 		$prop = (string) $prop;
 		return esc_attr(self::$prefix.'-'.$prop);

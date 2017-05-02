@@ -1,16 +1,38 @@
 
+#wrfm-settings-field .wrfm-container {
+	margin-top: 30px;
+	padding: 15px 0;
+	border-top: 1px solid #ccc;
+}
 
-#wrfm-new_filter {
+#wrfm-settings-field .wrfm-filters li {
+	margin-bottom: 10px;
+}
+#wrfm-settings-field .wrfm-filter-header {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 10px;
+}
+
+#wrfm-settings-field .wrfm-new_filter {
 	padding: 2.5em 1.5em;
 	text-align: center;
 	cursor: crosshair;
 	border: 4px dashed #b4b9be;
 }
-#wrfm-new_filter:hover {
+#wrfm-settings-field .wrfm-new_filter:hover {
 	border-color: #83b4d8;
 }
-.wrfm-new_filter-info {
+#wrfm-settings-field .wrfm-new_filter-info {
 	color: #a0a5aa;
     font-size: 1.5em;
     margin: 5px 0;
+}
+
+.wrfm-panel {
+	padding: 1em;
+	background: #fff;
+	border: 1px solid #e5e5e5;
+    -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
 }

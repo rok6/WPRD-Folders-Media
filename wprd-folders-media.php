@@ -8,7 +8,7 @@ Author: mzkr6
 Author URI: http://example.com/
 License: GPL2
 
-v PHP 5.4 -
+v PHP 5.6 -
 
 Copyright 2017 mazkr6 (email : プラグイン作者のメールアドレス)
 
@@ -34,8 +34,7 @@ if( !is_admin() ) {
 }
 
 require_once(__DIR__.'/includes/wrfm-utils.php');
-require_once(__DIR__.'/includes/wrfm-admin-settings.php');
-require_once(__DIR__.'/includes/wrfm-admin-fields.php');
+require_once(__DIR__.'/includes/wrfm-admin.php');
 require_once(__DIR__.'/includes/wrfm-uploads.php');
 require_once(__DIR__.'/includes/wrfm.php');
 
@@ -45,9 +44,9 @@ $WRFM = WPRD_Folders_Media::get_object();
  * Start Actions
  */
 register_activation_hook( __FILE__, [ $WRFM, 'activate' ] );
-	add_action( 'plugins_loaded', [ $WRFM, 'initialize' ] );
 register_deactivation_hook( __FILE__, [ $WRFM, 'deactivate' ]  );
 
+add_action( 'plugins_loaded', [ $WRFM, 'initialize' ] );
 
 /**
  * dump ex
